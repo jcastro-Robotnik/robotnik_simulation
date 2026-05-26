@@ -91,6 +91,11 @@ def generate_launch_description():
             ]),
             description="Path to the world file"
         ),
+        DeclareLaunchArgument(
+            "world_name",
+            default_value="demo",
+            description="Gazebo world name used by robot sensors and plugins"
+        ),
     ]
 
     robot_id = LaunchConfiguration("robot_id")
@@ -100,6 +105,7 @@ def generate_launch_description():
     use_gui = LaunchConfiguration("use_gui")
     low_performance_simulation = LaunchConfiguration("low_performance_simulation")
     world_path = LaunchConfiguration("world_path")
+    world_name = LaunchConfiguration("world_name")
     use_rviz = LaunchConfiguration("use_rviz")
     run_moveit = LaunchConfiguration("run_moveit")
     arm_type = LaunchConfiguration("arm_type")
@@ -113,6 +119,7 @@ def generate_launch_description():
         launch_arguments={
             'robot_id': robot_id,
             'gui': use_gui,
+            'world': world_name,
             'world_path': world_path
         }.items()
     )
@@ -130,6 +137,7 @@ def generate_launch_description():
             'robot_xacro_path': robot_xacro_path,
             'arm_type': arm_type,
             'low_performance_simulation': low_performance_simulation,
+            'world_name': world_name,
             'run_rviz': 'false'
         }.items()
     )

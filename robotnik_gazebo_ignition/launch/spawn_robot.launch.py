@@ -35,6 +35,7 @@ from launch.substitutions import LaunchConfiguration
 from launch.substitutions import SubstitutionFailure
 from launch.substitutions import Command, FindExecutable
 from launch.substitutions import PathJoinSubstitution
+from launch.substitutions import EqualsSubstitution
 
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -139,7 +140,8 @@ def launch_setup(context, params):
             'namespace': params['robot_id'],
             'gazebo_ignition': 'true',
             'arm_type': params['arm_type'],
-            'low_performance_simulation': params['low_performance_simulation']
+            'low_performance_simulation': params['low_performance_simulation'],
+            'world_name': params['world_name'],
         }.items(),
     ))
 
@@ -209,6 +211,17 @@ def launch_setup(context, params):
             {'config_file': bridge_yaml},
         ],
         namespace=params['robot_id'],
+    ))
+
+    ret.append(Node(
+        package='vacuum_gripper_plugin',
+        executable='vacuum_bridge_node',
+        namespace=params['robot_id'],
+        output='screen',
+        parameters=[{'use_sim_time': True}],
+        condition=IfCondition(
+            EqualsSubstitution(params['robot_model'], 'rbrobout_plus')
+        ),
     ))
 
 
@@ -333,6 +346,7 @@ def generate_launch_description():
         ("rviz_config", "RViz configuration file", "", "CONFIG_RVIZ"),
         ("use_sim_time", "Use simulation time", "True", "USE_SIM_TIME"),
         ("low_performance_simulation", "Enable Low Performance Simulation", "False", "LOW_PERFORMANCE_SIMULATION"),
+        ("world_name", "Gazebo world name used by robot sensors and plugins", "demo", "WORLD_NAME"),
     ]
 
     ld = LaunchDescription()

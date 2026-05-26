@@ -41,8 +41,29 @@ def load_yaml(package_path, relative_path):
         return yaml.safe_load(f)
 
 
+def replace_in_structure(value, replacements):
+    if isinstance(value, dict):
+        return {
+            replace_in_structure(key, replacements): replace_in_structure(item, replacements)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [replace_in_structure(item, replacements) for item in value]
+    if isinstance(value, str):
+        for old, new in replacements:
+            value = value.replace(old, new)
+        return value
+    return value
+
+
+def load_prefixed_text(path, prefix):
+    with open(path, 'r', encoding='utf-8') as file_handle:
+        return file_handle.read().replace('robot_', prefix)
+
+
 def launch_setup(context, *args, **kwargs):
     robot_id = LaunchConfiguration('robot_id').perform(context)
+    prefix = f'{robot_id}_'
     robot_model = LaunchConfiguration('robot_model').perform(context)
     robot_xacro_path = LaunchConfiguration('robot_xacro_path').perform(context)
     moveit_config_name = LaunchConfiguration('moveit_config_name').perform(context)
@@ -57,7 +78,7 @@ def launch_setup(context, *args, **kwargs):
             Command([
                 FindExecutable(name='xacro'), ' ', robot_xacro_path, ' ',
                 f'namespace:={robot_id}', ' ',
-                f'prefix:={robot_id}_', ' ',
+                f'prefix:={prefix}', ' ',
                 'gazebo_ignition:=true', ' ',
                 f'ur_type:={arm_type}',
             ]),
@@ -66,13 +87,7 @@ def launch_setup(context, *args, **kwargs):
     }
 
     robot_description_semantic = {
-        'robot_description_semantic': ParameterValue(
-            Command([
-                FindExecutable(name='xacro'), ' ', srdf_path, ' ',
-                f'namespace:={robot_id}_',
-            ]),
-            value_type=str,
-        )
+        'robot_description_semantic': load_prefixed_text(srdf_path, prefix)
     }
 
     robot_description_kinematics = {
@@ -80,10 +95,13 @@ def launch_setup(context, *args, **kwargs):
     }
 
     planning_description_yaml = {
-        'robot_description_planning': {
-            **load_yaml(moveit_config_pkg, 'config/joint_limits.yaml'),
-            **load_yaml(moveit_config_pkg, 'config/pilz_cartesian_limits.yaml'),
-        }
+        'robot_description_planning': replace_in_structure(
+            {
+                **load_yaml(moveit_config_pkg, 'config/joint_limits.yaml'),
+                **load_yaml(moveit_config_pkg, 'config/pilz_cartesian_limits.yaml'),
+            },
+            [('robot_', prefix)],
+        )
     }
 
     ompl_yaml = {
@@ -127,7 +145,10 @@ def launch_setup(context, *args, **kwargs):
         'default_planning_pipeline': 'pilz_industrial_motion_planner',
     }
 
-    controllers_yaml = load_yaml(moveit_config_pkg, 'config/moveit_controllers.yaml')
+    controllers_yaml = replace_in_structure(
+        load_yaml(moveit_config_pkg, 'config/moveit_controllers.yaml'),
+        [('robot_', prefix)],
+    )
 
     trajectory_execution = {
         'moveit_manage_controllers': False,
@@ -145,7 +166,9 @@ def launch_setup(context, *args, **kwargs):
         'publish_robot_description_semantic': True,
     }
 
-    use_sim_time = {'use_sim_time': True}
+    use_sim_time = {
+        'use_sim_time': LaunchConfiguration('use_sim_time'),
+    }
 
     move_group_node = Node(
         package='moveit_ros_move_group',

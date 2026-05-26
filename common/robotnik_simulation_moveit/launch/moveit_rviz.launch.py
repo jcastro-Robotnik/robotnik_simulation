@@ -41,8 +41,14 @@ def load_yaml(package_path, relative_path):
         return yaml.safe_load(f)
 
 
+def load_prefixed_text(path, prefix):
+    with open(path, 'r', encoding='utf-8') as file_handle:
+        return file_handle.read().replace('robot_', prefix)
+
+
 def launch_setup(context, *args, **kwargs):
     robot_id = LaunchConfiguration('robot_id').perform(context)
+    prefix = f'{robot_id}_'
     robot_model = LaunchConfiguration('robot_model').perform(context)
     robot_xacro_path = LaunchConfiguration('robot_xacro_path').perform(context)
     moveit_config_name = LaunchConfiguration('moveit_config_name').perform(context)
@@ -59,7 +65,7 @@ def launch_setup(context, *args, **kwargs):
             Command([
                 FindExecutable(name='xacro'), ' ', robot_xacro_path, ' ',
                 f'namespace:={robot_id}', ' ',
-                f'prefix:={robot_id}_', ' ',
+                f'prefix:={prefix}', ' ',
                 'gazebo_ignition:=true', ' ',
                 f'ur_type:={arm_type}',
             ]),
@@ -68,13 +74,7 @@ def launch_setup(context, *args, **kwargs):
     }
 
     robot_description_semantic = {
-        'robot_description_semantic': ParameterValue(
-            Command([
-                FindExecutable(name='xacro'), ' ', srdf_path, ' ',
-                f'namespace:={robot_id}_',
-            ]),
-            value_type=str,
-        )
+        'robot_description_semantic': load_prefixed_text(srdf_path, prefix)
     }
 
     robot_description_kinematics_raw = load_yaml(moveit_config_pkg, 'config/kinematics.yaml')
@@ -88,7 +88,7 @@ def launch_setup(context, *args, **kwargs):
                 'kinematics_solver': group_cfg['kinematics_solver']
             }
 
-    use_sim_time = {'use_sim_time': True}
+    use_sim_time = {'use_sim_time': LaunchConfiguration('use_sim_time')}
 
     rviz_node = Node(
         package='rviz2',
